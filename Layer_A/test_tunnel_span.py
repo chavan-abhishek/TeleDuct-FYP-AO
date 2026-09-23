@@ -4,15 +4,15 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource
-import time
+import os, time
 
-NGROK_URL = "https://employer-subheader-reverend.ngrok-free.dev"
+OTEL_ENDPOINT = os.getenv("OTEL_ENDPOINT", "http://localhost:4318")
 
 resource = Resource.create({"service.name": "tunnel-test-service"})
 provider = TracerProvider(resource=resource)
 provider.add_span_processor(BatchSpanProcessor(
     OTLPSpanExporter(
-        endpoint=f"{NGROK_URL}/v1/traces",   # ← the fix: explicit full path
+        endpoint=f"{OTEL_ENDPOINT}/v1/traces",   # ← explicit full path
         headers={"ngrok-skip-browser-warning": "true"}
     )
 ))

@@ -5,15 +5,15 @@ Tests the REAL DualWriteEmitter against your REAL local OTel Collector
 data instead of a real GPU. This is the last thing to prove before
 GPU time starts.
 """
-import sys, time, random, uuid
+import sys, os, time, random, uuid
 sys.path.insert(0, ".")
 from emitter import DualWriteEmitter
 
-NGROK_URL = "https://employer-subheader-reverend.ngrok-free.dev"
-PG_DSN    = "postgresql://researcher:hackathon2026@localhost:5433/agent_observability"
+OTEL_ENDPOINT = os.getenv("OTEL_ENDPOINT", "http://localhost:4318")
+PG_DSN        = os.getenv("PG_DSN", "postgresql://teleduct_admin:teleduct_secure_pass_2026@localhost:5432/teleduct_telemetry")
 
 emitter = DualWriteEmitter(
-    otel_endpoint=NGROK_URL,
+    otel_endpoint=OTEL_ENDPOINT,
     pg_dsn=PG_DSN,
     service_name="teleduct-real-emitter-test"
 )

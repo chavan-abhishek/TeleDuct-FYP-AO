@@ -1,13 +1,26 @@
-# OS & Editor Files
+# ==========================================
+# TeleDuct .gitignore
+# ==========================================
+
+# ── Operating System & File System ──
 .DS_Store
 .DS_Store?
 ._*
 .Spotlight-V100
 .Trashes
-.vscode/
-.idea/
+ehthumbs.db
+Thumbs.db
 
-# Python & Environments
+# ── IDEs & Code Editors ──
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+*.sublime-workspace
+*.sublime-project
+
+# ── Python & Build Artifacts ──
 __pycache__/
 *.py[cod]
 *$py.class
@@ -28,23 +41,78 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+*.manifest
+*.spec
 
-# Virtual Environments
-.venv*
+# ── Virtual Environments ──
+.venv/
+.venv*/
 venv/
+venv*/
 env/
 ENV/
 env.bak/
 venv.bak/
 
-# Logs & Runtime Storage
+# ── Shell, REPL & R History ──
+.Rhistory
+.RData
+.Ruserdata
+.history
+*.history
+*.bash_history
+*.zsh_history
+.python_history
+.node_repl_history
+
+# ── Secrets, Credentials & Environment Files ──
+.env
+.env.*
+*.env
+*.env.local
+!.env.example
+credentials.json
+client_secret*.json
+secrets.yaml
+secrets.json
+.aws/
+.gcp/
+
+# ── Certificates & Keys ──
+*.pem
+*.key
+*.pub
+id_rsa*
+id_ed25519*
+*.crt
+*.pfx
+*.p12
+*.cer
+
+# ── Logs & Runtime ──
 *.log
 logs/
+*.pid
+*.seed
+*.pid.lock
+nohup.out
+
+# ── Databases & Persistent Storage ──
+*.sqlite
 *.sqlite3
+*.db
 pgdata/
 promdata/
 grafanadata/
 
-# Local Environment Variables
-.env
-.env.local
+# ── AI Models, Weights & Large Checkpoints ──
+*.pt
+*.pth
+*.bin
+*.safetensors
+*.onnx
+models/
+checkpoints/
+
+# ── Docker Overrides ──
+docker-compose.override.yml

@@ -15,7 +15,10 @@ from repository import ObservabilityRepository
 from mock_llm import MockLLM
 from agents import run_financial_compliance_agent
 
-PG_DSN = "postgresql://researcher:hackathon2026@localhost:5433/agent_observability"
+PG_DSN = os.getenv(
+    "PG_DSN",
+    "postgresql://teleduct_admin:teleduct_secure_pass_2026@localhost:5432/teleduct_telemetry"
+)
 
 def main():
     pg = psycopg2.connect(PG_DSN)
