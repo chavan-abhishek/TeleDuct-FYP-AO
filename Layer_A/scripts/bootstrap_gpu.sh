@@ -18,8 +18,9 @@ fi
 source /workspace/teleduct_env/bin/activate
 pip install --upgrade pip
 
-echo "📦 Installing Layer A Telemetry Dependencies..."
+echo "📦 Installing Layer A Telemetry & Serving Dependencies..."
 pip install \
+    "sglang[all]" \
     pynvml==11.5.0 \
     psycopg2-binary==2.9.9 \
     requests==2.31.0 \

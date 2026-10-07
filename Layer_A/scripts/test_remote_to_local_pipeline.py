@@ -9,6 +9,10 @@ import os
 import sys
 import time
 import requests
+
+# Ensure Layer_A root is on sys.path so sibling modules (emitter, etc.) can be imported
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 from emitter import DualWriteEmitter
 
 def run_test():

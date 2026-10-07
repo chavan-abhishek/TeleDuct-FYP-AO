@@ -8,6 +8,10 @@ import os
 import sys
 import time
 import signal
+
+# Ensure Layer_A root is on sys.path so sibling modules (emitter, gpu_poller, etc.) can be imported
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 from emitter import DualWriteEmitter
 from gpu_poller import GPUPoller
 from sglang_scraper import SGLangMetricsScraper
