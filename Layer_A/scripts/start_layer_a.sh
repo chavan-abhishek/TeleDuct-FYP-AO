@@ -13,8 +13,10 @@ if ! command -v nvidia-smi &> /dev/null; then
 fi
 echo "✅ GPU: $(nvidia-smi --query-gpu=name --format=csv,noheader)"
 
-# 2. Activate Persistent Virtualenv
-source /workspace/teleduct_env/bin/activate
+# 2. Activate Persistent Virtualenv if present
+if [ -f "/workspace/teleduct_env/bin/activate" ]; then
+    source /workspace/teleduct_env/bin/activate
+fi
 
 # 3. Check / Start SGLang on Port 18000
 if lsof -i :18000 > /dev/null 2>&1; then
