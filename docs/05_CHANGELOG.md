@@ -77,6 +77,24 @@ This document provides a chronological record of major project milestones, archi
 
 ---
 
+### Phase 6: RunPod GPU Deployment & SGLang Serving Verification (October 10, 2026)
+*Target: Establish a healthy, running SGLang inference server with `openai/gpt-oss-20b` on RunPod.*
+
+- **Environment Provisioned:** RunPod instance with 1x NVIDIA L4 (24GB GDDR6, Ada Lovelace `sm_89`, CUDA 13.0) and persistent network volume mounted at `/workspace`.
+- **Failures Diagnosed & Resolved:**
+  1. *DLPack Symbol Collision (`torch_c_dlpack_ext`):* SGLang CLI crashed during backend autodetection due to undefined symbol `_ZNK3c106Device3strB5cxx11Ev`. Resolved by uninstalling `torch_c_dlpack_ext` (`pip uninstall -y torch_c_dlpack_ext`), which is unnecessary for standard text inference.
+  2. *CUDA 13 / Ada Lovelace SM89 Kernel Mismatch:* Older `sglang-kernel 0.4.7` lacked precompiled CUDA 13 binaries for SM89 architecture. Upgraded to `sglang-kernel 0.4.9` with `torch 2.14.1` and `triton 3.8.0`, restoring native kernel dispatch.
+  3. *Virtualenv Isolation:* Hardened bootstrap logic to purge cross-pod artifact contamination and cleanly manage packages on the persistent volume.
+- **Milestone Verified:**
+  - `openai/gpt-oss-20b` model weights (13.05 GB) loaded from `/workspace/models` cache in 154.93s.
+  - CUDA graph captures completed: prefill (64.55s), decode (4.58s).
+  - Internal `/model_info` returned `200 OK`.
+  - Health check probe (`/health`) returned `200 OK`.
+  - Triton attention kernel compiled; initial warmup prefill batch (`POST /generate`) succeeded with `200 OK`.
+  - GC frozen (`POST /freeze_gc 200 OK`) and server reported: *"The server is fired up and ready to roll!"* on `127.0.0.1:18000`.
+
+---
+
 ## Summary of Key Engineering Lessons
 
 1. **MoE VRAM Arithmetic:** Memory capacity planning for Mixture-of-Experts models must always be computed against *total parameters*, never *active parameters*.
@@ -85,3 +103,5 @@ This document provides a chronological record of major project milestones, archi
 4. **Diagnostic Discipline (`nvidia-smi dmon`):** Sampling SM utilization during hangs is the definitive tool to distinguish genuine software deadlocks (0% SM, high CPU) from slow hardware execution ($>0\%$ SM).
 5. **Process Hygiene in GPU Environments:** Never assume terminating a parent process frees the listening socket immediately; always verify with `lsof -i :PORT` before launching new servers.
 6. **Decoupled Local Dry-Runs:** Developing Layer B and telemetry sinks against a deterministic `MockLLM` decoupled application progress from GPU availability, saving extensive cloud rental costs.
+7. **Cloud Volume Caching Strategy:** Caching large model snapshots (`/workspace/models`) on network storage prevents burning expensive GPU compute minutes on network downloads during fresh pod spins.
+8. **C++ ABI & CUDA 13 Pinning:** When using cutting-edge host drivers (CUDA 13.0+), ensure extensions like `sglang-kernel` are aligned with the host compute capability (`sm_89`) to prevent obscure dynamic linker errors.

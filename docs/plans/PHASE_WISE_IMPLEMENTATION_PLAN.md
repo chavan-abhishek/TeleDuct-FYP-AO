@@ -686,12 +686,13 @@ Use this checklist to verify whether Phase 1 has been successfully achieved.
 
 | Item | Description | Expected Output / Verification Command | Status |
 |---|---|---|---|
-| **1. GPU Hardware State** | GPU recognized with 24GB VRAM | `nvidia-smi`<br>Expected: RTX 3090/4090, ~13GB VRAM in use when model loaded. | [ ] |
-| **2. Persistent Volume Cache** | Model weights cached on `/workspace` | `ls -la /workspace/models/models--openai--gpt-oss-20b/`<br>Expected: Snapshots present; SGLang logs report `Found local HF snapshot ...; skipping download`. | [ ] |
-| **3. SGLang Server Health** | Engine listening on port 18000 | `curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:18000/health`<br>Expected: `200`. | [ ] |
-| **4. Live Token Generation** | SGLang produces tokens under 1.0s | `curl -s http://127.0.0.1:18000/generate -H "Content-Type: application/json" -d '{"text":"What is 2+2?","sampling_params":{"max_new_tokens":10,"temperature":0}}'`<br>Expected: JSON with `"text"` field. | [ ] |
+| **1. GPU Hardware State** | GPU recognized with 24GB VRAM | `nvidia-smi`<br>Expected: NVIDIA L4 / RTX 3090/4090, ~13GB VRAM in use when model loaded. | [x] |
+| **2. Persistent Volume Cache** | Model weights cached on `/workspace` | `ls -la /workspace/models/models--openai--gpt-oss-20b/`<br>Expected: Snapshots present; SGLang logs report `Found local HF snapshot ...; skipping download`. | [x] |
+| **3. SGLang Server Health** | Engine listening on port 18000 | `curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:18000/health`<br>Expected: `200`. | [x] |
+| **4. Live Token Generation** | SGLang produces tokens under 1.0s | `curl -s http://127.0.0.1:18000/generate -H "Content-Type: application/json" -d '{"text":"What is 2+2?","sampling_params":{"max_new_tokens":10,"temperature":0}}'`<br>Expected: JSON with `"text"` field. | [x] |
 | **5. Background Daemons** | Hardware and metric pollers running | `ps aux | grep run_daemons.py`<br>Expected: Python process active, streaming telemetry every 2–3 seconds. | [ ] |
-| **6. Fast Resume Proof** | Instance pause & resume test | Stop instance, reconnect, run `./Layer_A/scripts/start_layer_a.sh`<br>Expected: Fully online in **< 30 seconds**. | [ ] |
+| **6. Fast Resume Proof** | Instance pause & resume test | Stop instance, reconnect, run `./Layer_A/scripts/start_layer_a.sh`<br>Expected: Fully online in **< 30 seconds**. | [x] |
+
 
 ---
 

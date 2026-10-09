@@ -28,4 +28,11 @@ pip install \
     opentelemetry-sdk==1.24.0 \
     opentelemetry-exporter-otlp-proto-http==1.24.0
 
+# CUDA 13 / Ada Lovelace (sm_89) compatibility hardening:
+# 1. Remove buggy C++ DLPack extension if present (prevents undefined symbol _ZNK3c106Device3strB5cxx11Ev)
+pip uninstall -y torch_c_dlpack_ext 2>/dev/null || true
+
+# 2. Ensure sglang-kernel and nvrtc match the host CUDA architecture
+pip install --upgrade sglang-kernel nvidia-cuda-nvrtc
+
 echo "✅ Environment bootstrapped successfully on /workspace!"
