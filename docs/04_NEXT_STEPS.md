@@ -47,14 +47,20 @@ This document outlines the prioritized, step-by-step roadmap for the next **1 to
 
 **Goal:** Connect Layer A instrumentation (`ChainOfIntentLogitProcessor`, `GPUPoller`, `SGLangMetricsScraper`, `DualWriteEmitter`) to the live inference engine and stream real data to the local OpenTelemetry Collector and PostgreSQL.
 
-### Step 2.1: Establish Local Ingestion & Tunnels
-- On laptop: Ensure Docker containers for the local OpenTelemetry Collector, PostgreSQL 16, and self-hosted Langfuse baseline are running.
-- Open ngrok tunnels for both services:
+### Step 2.1: Establish Local Ingestion & SSH Tunnels
+- On laptop (Layer B): Ensure Docker containers for the local OpenTelemetry Collector (port 4318) and PostgreSQL (port 5433) are running.
+- Establish an SSH tunnel from the Mac to the RunPod instance using both Local (`-L`) and Remote (`-R`) port forwarding:
   ```bash
-  ngrok http 4318   # OpenTelemetry Collector OTLP/HTTP
-  ngrok tcp 5432    # PostgreSQL TCP
+  ssh root@213.173.105.13 -p 16264 \
+      -L 18000:localhost:18000 \
+      -R 4318:localhost:4318 \
+      -R 5432:localhost:5433 \
+      -i ~/.ssh/id_rsa
   ```
-- Copy the public ngrok URLs into the remote instance environment variables (`OTEL_EXPORTER_OTLP_ENDPOINT`, `PG_DSN`).
+  *(Note: The IP `213.173.105.13` and port `16264` are specific to your current RunPod instance. If you delete and recreate the pod, you must update these values from the RunPod dashboard Connect button.)*
+- Because of reverse port forwarding, on the remote RunPod instance (Layer A), simply use `localhost` for all environment variables! The SSH tunnel will securely forward these requests back to the Mac.
+  - `OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:4318"`
+  - `PG_DSN="postgresql://postgres:postgres@localhost:5432/teleduct"`
 
 ### Step 2.2: Deploy & Start Layer A Daemons on GPU Instance
 - Deploy `Layer_A/` files to the GPU host.
