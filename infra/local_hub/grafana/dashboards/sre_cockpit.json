@@ -1,0 +1,319 @@
+{
+    "annotations": {
+        "list": []
+    },
+    "editable": true,
+    "fiscalYearStartMonth": 0,
+    "graphTooltip": 1,
+    "id": null,
+    "links": [],
+    "liveNow": true,
+    "panels": [
+        {
+            "collapsed": false,
+            "gridPos": {
+                "h": 1,
+                "w": 24,
+                "x": 0,
+                "y": 0
+            },
+            "id": 1,
+            "title": "🎯 Real-Time Fragility & GPU Hardware State",
+            "type": "row"
+        },
+        {
+            "datasource": {
+                "type": "postgres",
+                "uid": "postgresql"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "yellow",
+                                "value": 1
+                            },
+                            {
+                                "color": "red",
+                                "value": 3
+                            }
+                        ]
+                    },
+                    "unit": "short"
+                }
+            },
+            "gridPos": {
+                "h": 6,
+                "w": 6,
+                "x": 0,
+                "y": 1
+            },
+            "id": 2,
+            "title": "🚨 Fragile Decisions Detected (Margin < 0.05)",
+            "type": "stat",
+            "targets": [
+                {
+                    "format": "table",
+                    "rawSql": "SELECT count(*) FROM logit_telemetry WHERE fragility_flag = true;",
+                    "refId": "A"
+                }
+            ]
+        },
+        {
+            "datasource": {
+                "type": "postgres",
+                "uid": "postgresql"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "blue",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "short"
+                }
+            },
+            "gridPos": {
+                "h": 6,
+                "w": 6,
+                "x": 6,
+                "y": 1
+            },
+            "id": 3,
+            "title": "🏦 Total Agent Sessions Executed",
+            "type": "stat",
+            "targets": [
+                {
+                    "format": "table",
+                    "rawSql": "SELECT count(*) FROM sessions;",
+                    "refId": "A"
+                }
+            ]
+        },
+        {
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "max": 24,
+                    "min": 0,
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "orange",
+                                "value": 20
+                            },
+                            {
+                                "color": "red",
+                                "value": 23
+                            }
+                        ]
+                    },
+                    "unit": "decgbytes"
+                }
+            },
+            "gridPos": {
+                "h": 6,
+                "w": 6,
+                "x": 12,
+                "y": 1
+            },
+            "id": 4,
+            "title": "GPU VRAM Allocated (L4 / 24GB)",
+            "type": "gauge",
+            "targets": [
+                {
+                    "expr": "teleduct_gpu_vram_used_gb_GB",
+                    "refId": "A"
+                }
+            ]
+        },
+        {
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "max": 75,
+                    "min": 0,
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "yellow",
+                                "value": 50
+                            },
+                            {
+                                "color": "red",
+                                "value": 70
+                            }
+                        ]
+                    },
+                    "unit": "watt"
+                }
+            },
+            "gridPos": {
+                "h": 6,
+                "w": 6,
+                "x": 18,
+                "y": 1
+            },
+            "id": 5,
+            "title": "GPU Power Draw (NVML)",
+            "type": "gauge",
+            "targets": [
+                {
+                    "expr": "teleduct_gpu_power_watts",
+                    "refId": "A"
+                }
+            ]
+        },
+        {
+            "collapsed": false,
+            "gridPos": {
+                "h": 1,
+                "w": 24,
+                "x": 0,
+                "y": 7
+            },
+            "id": 6,
+            "title": "📊 Logit Confidence Breakdown & SGLang Throughput",
+            "type": "row"
+        },
+        {
+            "datasource": {
+                "type": "postgres",
+                "uid": "postgresql"
+            },
+            "gridPos": {
+                "h": 6,
+                "w": 12,
+                "x": 0,
+                "y": 8
+            },
+            "id": 7,
+            "title": "Token Sampling Margin Distribution by Category",
+            "type": "barchart",
+            "targets": [
+                {
+                    "format": "table",
+                    "rawSql": "SELECT CASE WHEN sampling_margin < 0.05 THEN 'Fragile (< 0.05)' WHEN sampling_margin <= 0.30 THEN 'Medium (0.05 - 0.30)' ELSE 'High (> 0.30)' END as confidence_tier, count(*) as count FROM logit_telemetry WHERE sampling_margin IS NOT NULL GROUP BY 1 ORDER BY 2 DESC;",
+                    "refId": "A"
+                }
+            ]
+        },
+        {
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "unit": "ops"
+                }
+            },
+            "gridPos": {
+                "h": 6,
+                "w": 12,
+                "x": 12,
+                "y": 8
+            },
+            "id": 8,
+            "title": "SGLang Tokens / Sec Throughput",
+            "type": "timeseries",
+            "targets": [
+                {
+                    "expr": "teleduct_sglang_tokens_per_sec",
+                    "legendFormat": "TPS",
+                    "refId": "A"
+                }
+            ]
+        },
+        {
+            "collapsed": false,
+            "gridPos": {
+                "h": 1,
+                "w": 24,
+                "x": 0,
+                "y": 14
+            },
+            "id": 9,
+            "title": "🔍 Live Correlated Token Steps (Intent + Logits)",
+            "type": "row"
+        },
+        {
+            "datasource": {
+                "type": "postgres",
+                "uid": "postgresql"
+            },
+            "gridPos": {
+                "h": 10,
+                "w": 24,
+                "x": 0,
+                "y": 15
+            },
+            "id": 10,
+            "title": "Live Intercepted Token Steps & Correlation Feed",
+            "type": "table",
+            "targets": [
+                {
+                    "format": "table",
+                    "rawSql": "SELECT step_id, node_name, selected_action, sampling_margin, fragility_flag, confidence_label, event_time FROM v_step_fragility_correlation WHERE sampling_margin IS NOT NULL ORDER BY event_time DESC LIMIT 25;",
+                    "refId": "A"
+                }
+            ]
+        }
+    ],
+    "refresh": "5s",
+    "schemaVersion": 39,
+    "style": "dark",
+    "tags": [
+        "teleduct",
+        "phase2",
+        "sre"
+    ],
+    "time": {
+        "from": "now-15m",
+        "to": "now"
+    },
+    "title": "TeleDuct Phase 2 — SRE & Fragility Cockpit",
+    "uid": "teleduct-phase2-cockpit"
+}

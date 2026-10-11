@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: 'TeleDuct SRE Cockpit'
+    orgId: 1
+    folder: 'TeleDuct'
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards
