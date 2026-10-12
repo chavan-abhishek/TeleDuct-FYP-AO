@@ -216,8 +216,19 @@ class EventIngestionStore:
                     "attribution": "direct",
                 })
 
+        # Extract root run event if present
+        root_run_events = [e for e in run_direct_events if e.event_type == "agent.run"]
+        run_event_json = root_run_events[0].to_json() if root_run_events else None
+
+        # Exclude root session initialization event from unmatched request count
+        unmatched_for_run = [
+            u for u in result["unmatched"]
+            if u.run_id == run_id and u.event_type != "agent.run"
+        ]
+
         return {
             "run_id": run_id,
+            "run_event": run_event_json,
             "observation_interval_ns": {
                 "start": t_start,
                 "end": t_end,
@@ -225,5 +236,5 @@ class EventIngestionStore:
             "trace_steps": trace_steps,
             "shared_device_context": [e.to_json() for e in filtered_device_samples],
             "ambiguous_count": len(result["ambiguous"]),
-            "unmatched_count": len([u for u in result["unmatched"] if u.run_id == run_id]),
+            "unmatched_count": len(unmatched_for_run),
         }
