@@ -1,0 +1,291 @@
+{
+    "annotations": {
+        "list": []
+    },
+    "editable": true,
+    "fiscalYearStartMonth": 0,
+    "graphTooltip": 1,
+    "id": null,
+    "links": [],
+    "liveNow": true,
+    "panels": [
+        {
+            "datasource": {
+                "type": "postgres",
+                "uid": "postgresql"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "yellow",
+                                "value": 1
+                            },
+                            {
+                                "color": "red",
+                                "value": 5
+                            }
+                        ]
+                    },
+                    "unit": "short"
+                }
+            },
+            "gridPos": {
+                "h": 5,
+                "w": 6,
+                "x": 0,
+                "y": 0
+            },
+            "id": 2,
+            "title": "🚨 Fragile Router Decisions (Margin < 0.10)",
+            "type": "stat",
+            "targets": [
+                {
+                    "format": "table",
+                    "rawSql": "SELECT count(*) FROM moe_telemetry WHERE routing_fragile = true;",
+                    "refId": "A"
+                }
+            ]
+        },
+        {
+            "datasource": {
+                "type": "postgres",
+                "uid": "postgresql"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "blue",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "short"
+                }
+            },
+            "gridPos": {
+                "h": 5,
+                "w": 6,
+                "x": 6,
+                "y": 0
+            },
+            "id": 3,
+            "title": "Total MoE Routing Events Captured",
+            "type": "stat",
+            "targets": [
+                {
+                    "format": "table",
+                    "rawSql": "SELECT count(*) FROM moe_telemetry;",
+                    "refId": "A"
+                }
+            ]
+        },
+        {
+            "datasource": {
+                "type": "postgres",
+                "uid": "postgresql"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "max": 1,
+                    "min": 0,
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "red",
+                                "value": null
+                            },
+                            {
+                                "color": "yellow",
+                                "value": 0.10
+                            },
+                            {
+                                "color": "green",
+                                "value": 0.25
+                            }
+                        ]
+                    },
+                    "unit": "prob"
+                }
+            },
+            "gridPos": {
+                "h": 5,
+                "w": 6,
+                "x": 12,
+                "y": 0
+            },
+            "id": 4,
+            "title": "Average MoE Routing Margin Across Layers",
+            "type": "gauge",
+            "targets": [
+                {
+                    "format": "table",
+                    "rawSql": "SELECT COALESCE(ROUND(AVG(avg_routing_margin)::numeric, 4), 0) FROM moe_telemetry;",
+                    "refId": "A"
+                }
+            ]
+        },
+        {
+            "datasource": {
+                "type": "postgres",
+                "uid": "postgresql"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "orange",
+                                "value": 1
+                            },
+                            {
+                                "color": "red",
+                                "value": 3
+                            }
+                        ]
+                    },
+                    "unit": "short"
+                }
+            },
+            "gridPos": {
+                "h": 5,
+                "w": 6,
+                "x": 18,
+                "y": 0
+            },
+            "id": 5,
+            "title": "Overloaded Experts Detected (Load > 30%)",
+            "type": "stat",
+            "targets": [
+                {
+                    "format": "table",
+                    "rawSql": "SELECT count(DISTINCT expert_id) FROM v_moe_bottleneck_experts;",
+                    "refId": "A"
+                }
+            ]
+        },
+        {
+            "datasource": {
+                "type": "postgres",
+                "uid": "postgresql"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "unit": "percentunit"
+                }
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 0,
+                "y": 5
+            },
+            "id": 7,
+            "title": "Expert Load Fraction Distribution (By Expert ID)",
+            "type": "barchart",
+            "targets": [
+                {
+                    "format": "table",
+                    "rawSql": "SELECT 'Expert ' || expert_id AS expert, ROUND(AVG(load_fraction)::numeric, 4) AS avg_load FROM v_moe_expert_load_breakdown GROUP BY expert_id ORDER BY expert_id ASC;",
+                    "refId": "A"
+                }
+            ]
+        },
+        {
+            "datasource": {
+                "type": "postgres",
+                "uid": "postgresql"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "unit": "prob"
+                }
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 12,
+                "y": 5
+            },
+            "id": 8,
+            "title": "Mean Routing Margin by Transformer Layer",
+            "type": "barchart",
+            "targets": [
+                {
+                    "format": "table",
+                    "rawSql": "SELECT 'Layer ' || layer_idx AS layer, mean_routing_margin FROM v_moe_layer_health_summary ORDER BY layer_idx ASC;",
+                    "refId": "A"
+                }
+            ]
+        },
+        {
+            "datasource": {
+                "type": "postgres",
+                "uid": "postgresql"
+            },
+            "gridPos": {
+                "h": 9,
+                "w": 24,
+                "x": 0,
+                "y": 13
+            },
+            "id": 10,
+            "title": "Live MoE Step Correlation Feed",
+            "type": "table",
+            "targets": [
+                {
+                    "format": "table",
+                    "rawSql": "SELECT step_id, node_name, layer_idx, ROUND(avg_routing_margin::numeric, 4) AS routing_margin, routing_fragile, expert_load, event_time FROM v_moe_step_correlation WHERE avg_routing_margin IS NOT NULL ORDER BY event_time DESC LIMIT 25;",
+                    "refId": "A"
+                }
+            ]
+        }
+    ],
+    "refresh": "5s",
+    "schemaVersion": 39,
+    "style": "dark",
+    "tags": [
+        "teleduct",
+        "phase3",
+        "moe"
+    ],
+    "time": {
+        "from": "now-15m",
+        "to": "now"
+    },
+    "title": "TeleDuct Phase 3 — MoE Routing & Expert Cockpit",
+    "uid": "teleduct-phase3-moe"
+}
