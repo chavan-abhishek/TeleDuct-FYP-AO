@@ -1,6 +1,13 @@
+import json
+import tempfile
+from pathlib import Path
 import unittest
-from teleduct.contracts import create_event
-from teleduct.fusion.join import correlate_requests, EventIngestionStore
+from teleduct.contracts import Event, create_event
+from teleduct.fusion.join import (
+    correlate_requests,
+    EventIngestionStore,
+    ConflictingEventError,
+)
 
 
 class FusionTests(unittest.TestCase):
@@ -56,7 +63,7 @@ class FusionTests(unittest.TestCase):
         self.assertEqual(len(res["matched"]), 0)
         self.assertEqual(len(res["ambiguous"]), 1)
 
-    def test_event_ingestion_store_idempotency(self):
+    def test_event_ingestion_store_idempotency_and_conflict_rejection(self):
         store = EventIngestionStore()
         event = create_event(
             event_type="agent.step",
@@ -67,47 +74,103 @@ class FusionTests(unittest.TestCase):
             request_id="req1",
             event_id="evt-fixed-uuid-001",
         )
-        # First ingestion succeeds
+        # 1. First ingestion succeeds
         self.assertTrue(store.ingest(event))
-        # Second ingestion of identical event_id is rejected idempotently
+        # 2. Second ingestion of identical event_id is rejected idempotently (returns False, no error)
         self.assertFalse(store.ingest(event))
         self.assertEqual(len(store.get_events()), 1)
 
-    def test_event_ingestion_store_batch_and_trace_slice(self):
-        store = EventIngestionStore()
-        s = create_event(
+        # 3. Third ingestion with same event_id but conflicting payload raises ConflictingEventError
+        conflicting_event = create_event(
             event_type="agent.step",
             source="semantic",
             attribution="direct",
-            run_id="run-slice-1",
-            step_id="step-1",
-            request_id="req-slice-1",
+            run_id="r1",
+            step_id="s_DIFFERENT_STEP",
+            request_id="req_DIFFERENT",
+            event_id="evt-fixed-uuid-001",
         )
-        r = create_event(
-            event_type="model.response",
-            source="runtime",
+        with self.assertRaises(ConflictingEventError):
+            store.ingest(conflicting_event)
+
+    def test_durable_jsonl_persistence_and_reload(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            jsonl_file = Path(tmpdir) / "events.jsonl"
+            store1 = EventIngestionStore(storage_path=jsonl_file)
+
+            ev1 = create_event(
+                event_type="agent.run",
+                source="semantic",
+                attribution="direct",
+                run_id="run-persist-1",
+                step_id="init",
+                event_id="evt-p-1",
+            )
+            ev2 = create_event(
+                event_type="model.request",
+                source="runtime",
+                attribution="direct",
+                request_id="req-p-1",
+                event_id="evt-p-2",
+            )
+            store1.ingest(ev1)
+            store1.ingest(ev2)
+
+            self.assertTrue(jsonl_file.exists())
+            lines = jsonl_file.read_text(encoding="utf-8").strip().splitlines()
+            self.assertEqual(len(lines), 2)
+
+            # Reload into brand new store instance
+            store2 = EventIngestionStore(storage_path=jsonl_file)
+            loaded = store2.get_events()
+            self.assertEqual(len(loaded), 2)
+            loaded_ids = {e.event_id for e in loaded}
+            self.assertEqual(loaded_ids, {"evt-p-1", "evt-p-2"})
+
+    def test_observation_interval_restriction(self):
+        store = EventIngestionStore()
+        t_base = 1791800000_000_000_000  # ns
+        # Event in Run A at T1
+        e_run_a = Event(
+            event_type="agent.step",
+            source="semantic",
             attribution="direct",
-            run_id="run-slice-1",
+            event_id="ev-run-a-1",
+            run_id="run-A",
             step_id="step-1",
-            request_id="req-slice-1",
+            request_id="req-A",
+            timestamp_unix_ns=t_base,
         )
-        g = create_event(
+        # GPU sample inside Run A interval
+        gpu_inside = Event(
             event_type="gpu.device_sample",
             source="nvidia_smi",
             attribution="shared_device",
+            event_id="ev-gpu-inside",
+            timestamp_unix_ns=t_base,
         )
-        added = store.ingest_batch([s, r, g, s])  # contains duplicate s
-        self.assertEqual(added, 3)
+        # GPU sample outside Run A interval (e.g. 5 hours later)
+        gpu_outside = Event(
+            event_type="gpu.device_sample",
+            source="nvidia_smi",
+            attribution="shared_device",
+            event_id="ev-gpu-outside",
+            timestamp_unix_ns=t_base + 5 * 3600 * 1_000_000_000,
+        )
 
-        slice_data = store.build_trace_slice("run-slice-1")
-        self.assertEqual(slice_data["run_id"], "run-slice-1")
-        self.assertEqual(len(slice_data["trace_steps"]), 1)
-        self.assertEqual(len(slice_data["shared_device_context"]), 1)
-        self.assertEqual(slice_data["ambiguous_count"], 0)
-        self.assertEqual(slice_data["unmatched_count"], 0)
+        store.ingest_batch([e_run_a, gpu_inside, gpu_outside])
+
+        # Trace slice for run-A should strictly filter GPU samples to observation interval
+        slice_a = store.build_trace_slice(
+            "run-A",
+            start_time_ns=t_base - 1000,
+            end_time_ns=t_base + 1000,
+        )
+        self.assertEqual(len(slice_a["shared_device_context"]), 1)
+        parsed_sample = json.loads(slice_a["shared_device_context"][0])
+        self.assertEqual(parsed_sample["timestamp_unix_ns"], t_base)
 
     def test_concurrent_requests_share_gpu_without_direct_allocation(self):
-        # Negative test: concurrent requests must NOT receive exclusive GPU attribution
         req_a_semantic = create_event(
             event_type="agent.step",
             source="semantic",
