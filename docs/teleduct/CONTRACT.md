@@ -2,8 +2,8 @@
 
 Canonical implementation: `src/teleduct/contracts/events.py`.
 
-Required fields: `schema_version`, `event_type`, `source`, `timestamp_unix_ns` (UTC wall clock), `attribution`.
-Optional join identifiers: `trace_id`, `run_id`, `step_id`, `request_id`.
+Required fields: `schema_version`, `event_type`, `source`, `timestamp_unix_ns` (UTC wall clock), `event_id` (immutable unique UUID string for idempotent ingestion), `attribution`.
+Optional join identifiers: `trace_id`, `span_id`, `parent_span_id`, `run_id`, `step_id`, `request_id`.
 `metrics` holds scalar numeric metrics with unit in key (e.g. `ttft_ms`, `vram_used_mib`).
 `attributes` holds JSON-compatible nonsecret, bounded labels. Never log raw prompt text by default.
 
@@ -17,5 +17,5 @@ Rules:
 
 Example event:
 ```json
-{"schema_version":"0.1.0","event_type":"model.response","source":"runtime","timestamp_unix_ns":1730000000000000000,"attribution":"direct","trace_id":"abc","run_id":"run-1","step_id":"step-2","request_id":"req-1","attributes":{"engine":"sglang"},"metrics":{"ttft_ms":40.0}}
+{"attributes":{"engine":"sglang"},"attribution":"direct","event_id":"550e8400-e29b-41d4-a716-446655440000","event_type":"model.response","metrics":{"ttft_ms":40.0},"parent_span_id":"00f067aa0ba902b7","request_id":"req-1","run_id":"run-1","schema_version":"0.1.0","source":"runtime","span_id":"b7ad6b7169203331","step_id":"step-2","timestamp_unix_ns":1730000000000000000,"trace_id":"abc"}
 ```
