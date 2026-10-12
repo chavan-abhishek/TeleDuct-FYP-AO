@@ -6,7 +6,12 @@ from teleduct.semantic.normalize import (
     SemanticStepTracker,
     TeleDuctLangGraphCallbackHandler,
 )
-from langgraph.graph import StateGraph, START, END
+try:
+    from langgraph.graph import StateGraph, START, END
+    HAS_LANGGRAPH = True
+except ImportError:
+    StateGraph = START = END = None  # type: ignore[assignment]
+    HAS_LANGGRAPH = False
 
 
 class SemanticTests(unittest.TestCase):
@@ -105,6 +110,7 @@ class SemanticTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             agent_run_event(run_id="")
 
+    @unittest.skipUnless(HAS_LANGGRAPH, "langgraph required for graph execution tests")
     def test_langgraph_instrumentation_success(self):
         class State(TypedDict):
             query: str
@@ -149,6 +155,7 @@ class SemanticTests(unittest.TestCase):
             self.assertEqual(step.parent_span_id, run_event.span_id)
             self.assertEqual(step.attributes["status"], "success")
 
+    @unittest.skipUnless(HAS_LANGGRAPH, "langgraph required for graph execution tests")
     def test_langgraph_instrumentation_error_propagation(self):
         class State(TypedDict):
             value: int
