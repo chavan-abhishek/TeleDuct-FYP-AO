@@ -44,7 +44,8 @@ def inference_event(
 
 def inference_request_event(
     *,
-    request_id: str,
+    request_id: str | None = None,
+    client_request_id: str | None = None,
     engine: str,
     model: str,
     run_id: str | None = None,
@@ -52,19 +53,26 @@ def inference_request_event(
     span_id: str | None = None,
     trace_id: str | None = None,
 ) -> Event:
-    """Outbound model request event."""
-    if not request_id or not engine or not model:
-        raise ValueError("request_id, engine, and model required")
+    """Outbound model request event explicitly tracking client_request_id."""
+    effective_req_id = client_request_id or request_id
+    if not effective_req_id or not engine or not model:
+        raise ValueError("request_id/client_request_id, engine, and model required")
+    
+    attributes: dict[str, Any] = {
+        "engine": engine,
+        "model": model,
+        "client_request_id": effective_req_id,
+    }
     return create_event(
         event_type="model.request",
         source="runtime",
         attribution="direct",
-        request_id=request_id,
+        request_id=effective_req_id,
         run_id=run_id,
         step_id=step_id,
         span_id=span_id,
         trace_id=trace_id,
-        attributes={"engine": engine, "model": model},
+        attributes=attributes,
     )
 
 
@@ -72,6 +80,7 @@ def parse_openai_completion_response(
     response_data: dict[str, Any],
     *,
     latency_ms: float,
+    client_request_id: str | None = None,
     engine: str = "sglang",
     run_id: str | None = None,
     step_id: str | None = None,
@@ -81,19 +90,33 @@ def parse_openai_completion_response(
     """Truthfully parse an OpenAI / SGLang compatible chat completion response.
 
     Rules:
+    - Explicitly distinguishes client_request_id from engine_native_id.
+    - Sets primary request_id to client_request_id if provided (for stable 1:1 join),
+      while recording engine_native_id in attributes.
     - Never fabricates default margins (e.g. 0.50). If logprobs are absent,
       sampling_margin is omitted.
     - Never reports non-streaming total latency as TTFT.
     """
-    request_id = response_data.get("id")
-    if not request_id:
-        raise ValueError("response payload missing native 'id'")
+    engine_native_id = response_data.get("id")
+    if not engine_native_id and not client_request_id:
+        raise ValueError("response payload missing native 'id' and no client_request_id provided")
     if latency_ms < 0:
         raise ValueError("latency_ms must be non-negative")
 
+    # Primary join key prioritizes client_request_id for end-to-end trace correlation
+    effective_request_id = client_request_id or engine_native_id
+    assert effective_request_id is not None
+
     model = response_data.get("model", "unknown")
     metrics: dict[str, float | int] = {"latency_ms": round(latency_ms, 2)}
-    attributes: dict[str, Any] = {"engine": engine, "model": model}
+    attributes: dict[str, Any] = {
+        "engine": engine,
+        "model": model,
+    }
+    if engine_native_id:
+        attributes["engine_native_id"] = engine_native_id
+    if client_request_id:
+        attributes["client_request_id"] = client_request_id
 
     usage = response_data.get("usage")
     if isinstance(usage, dict):
@@ -139,7 +162,7 @@ def parse_openai_completion_response(
         event_type="model.response",
         source="runtime",
         attribution="direct",
-        request_id=request_id,
+        request_id=effective_request_id,
         run_id=run_id,
         step_id=step_id,
         span_id=span_id,
