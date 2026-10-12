@@ -1,11 +1,18 @@
 """Truthful inference adapter for TeleDuct runtime."""
 from __future__ import annotations
+import json
 import math
 import time
+import urllib.request
+import urllib.error
 import uuid
 from dataclasses import dataclass
 from typing import Any, Callable
-import requests
+
+try:
+    import requests
+except ImportError:
+    requests = None  # type: ignore[assignment]
 
 from teleduct.contracts import Event
 from teleduct.runtime.normalize import (
@@ -35,14 +42,14 @@ class TruthfulInferenceClient:
         engine: str = "ollama",
         event_sink: Callable[[Event], None] | list[Event] | None = None,
         timeout: float = 30.0,
-        session: requests.Session | None = None,
+        session: Any | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.engine = engine
         self.event_sink = event_sink
         self.timeout = timeout
-        self.session = session or requests.Session()
+        self.session = session
         self.events: list[Event] = []
 
     def _emit(self, event: Event) -> None:
@@ -81,7 +88,7 @@ class TruthfulInferenceClient:
         )
         self._emit(req_event)
 
-        # 2. Execute network request
+        # 2. Execute network request (supports mock session, requests, or stdlib urllib)
         url = f"{self.base_url}/chat/completions"
         payload = {
             "model": self.model,
@@ -91,13 +98,29 @@ class TruthfulInferenceClient:
             "logprobs": logprobs,
             "top_logprobs": top_logprobs,
         }
-        headers = {"X-Request-ID": req_id}
+        headers = {
+            "X-Request-ID": req_id,
+            "Content-Type": "application/json",
+        }
 
         t0 = time.perf_counter()
-        resp = self.session.post(url, json=payload, headers=headers, timeout=self.timeout)
-        resp.raise_for_status()
+        if self.session is not None:
+            resp = self.session.post(url, json=payload, headers=headers, timeout=self.timeout)
+            if hasattr(resp, "raise_for_status"):
+                resp.raise_for_status()
+            data = resp.json()
+        elif requests is not None:
+            resp = requests.post(url, json=payload, headers=headers, timeout=self.timeout)
+            resp.raise_for_status()
+            data = resp.json()
+        else:
+            # Fallback to standard library urllib
+            req_data = json.dumps(payload).encode("utf-8")
+            url_req = urllib.request.Request(url, data=req_data, headers=headers, method="POST")
+            with urllib.request.urlopen(url_req, timeout=self.timeout) as http_resp:
+                data = json.loads(http_resp.read().decode("utf-8"))
+
         latency_ms = (time.perf_counter() - t0) * 1000.0
-        data = resp.json()
 
         # 3. Truthfully parse response
         resp_event = parse_openai_completion_response(
