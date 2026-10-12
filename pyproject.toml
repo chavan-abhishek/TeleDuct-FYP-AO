@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "teleduct"
+version = "0.1.0.dev0"
+requires-python = ">=3.11"
+description = "Opt-in cross-layer observability prototype for AI agents and inference"
+# Optional integrations are deliberately not dependencies of the stdlib contract tests.
+dependencies = []
+
+[tool.setuptools.packages.find]
+where = ["src"]
