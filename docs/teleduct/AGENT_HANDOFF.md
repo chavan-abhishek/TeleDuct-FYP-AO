@@ -25,7 +25,7 @@ Deliver in your final report:
 3. Test results (observed, not projected).
 4. Sample redacted event with correct attribution scope.
 5. Limitations, clock/correlation ambiguity and next milestone.
-6. Suggested PR title/body targeting `integration/v0.1`.
+6. Suggested PR title/body targeting `psw`.
 
 Do not push, force-push, merge, change GitHub branch protections or alter GPU drivers without
 explicit human instruction.

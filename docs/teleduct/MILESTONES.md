@@ -28,4 +28,4 @@
 - MoE and divergence studies only after model support, runtime availability and calibration data are validated.
 
 ## Merge procedure
-Every feature branch derives from the integrated foundation through `integration/v0.1`; PRs target integration and must include reproducible test logs, changed files, measured metrics with units, limitations and merge checklist. Never merge merely because synthetic fixtures look plausible.
+Every feature branch derives from the integrated foundation through `psw`; PRs target `psw` and must include reproducible test logs, changed files, measured metrics with units, limitations and merge checklist. Never merge merely because synthetic fixtures look plausible. Never target or merge into `main` without explicit human authorization.

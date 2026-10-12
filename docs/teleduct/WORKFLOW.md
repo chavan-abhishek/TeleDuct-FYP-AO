@@ -1,11 +1,11 @@
 # Parallel agent workflow
 
-1. Merge the foundation PR from `chore/00-foundation` to the existing default branch.
-2. Create and publish `integration/v0.1` **from the updated default branch**.
-3. Create feature branches from exactly the same integration base. Each has its own `WORKSTREAM.md`, source adapter, docs, and tests.
-4. Each owner works in a separate `git worktree` and opens an individual PR targeting `integration/v0.1`.
-5. Merge order: semantic + runtime; hardware; fusion; then dashboard/evaluation after the contract settles.
-6. Finally PR `integration/v0.1` into default branch, after all CI checks and a human review.
+1. `psw` is our independent development base carrying the completed F0 foundation. `main` belongs to our teammate and is not modified.
+2. Create and publish feature branches **directly from `psw`**.
+3. Create feature branches from exactly the same `psw` base. Each has its own `WORKSTREAM.md`, source adapter, docs, and tests.
+4. Each owner works in a separate `git worktree` and opens an individual PR targeting `psw`.
+5. Merge order: semantic + runtime; hardware; correlation/fusion; then dashboard/evaluation after the contract settles.
+6. All feature integrations flow into `psw`. Never merge into `main` unless explicitly authorized.
 
 Branch roster:
 - `feat/semantic-traces` — agent spans, tool calls, token usage and privacy.
