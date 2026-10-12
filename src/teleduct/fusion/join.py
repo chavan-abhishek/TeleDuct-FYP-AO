@@ -6,6 +6,7 @@ Device snapshots are preserved as contextual telemetry strictly within documente
 from __future__ import annotations
 import json
 import os
+import threading
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
@@ -17,17 +18,24 @@ class ConflictingEventError(Exception):
     pass
 
 
+class PersistenceError(Exception):
+    """Raised when an event fails to persist durably to storage."""
+    pass
+
+
 def correlate_requests(events: list[Event]) -> dict[str, Any]:
     """Correlate semantic and runtime events by explicit request identifiers.
     
     Rules:
     - Resolves client_request_id and engine_native_id mapping.
+    - Preserves distinct client_request_ids even if an engine emits duplicate native IDs.
     - Ambiguous duplicate request mappings across different steps are flagged as ambiguous.
     - Shared device samples are separated and never directly attributed to a single request.
-    - Unmatched events are preserved with explicit categorization.
+    - Unmatched requests and responses are preserved with explicit categorization.
     """
     semantic = defaultdict(list)
-    inference = defaultdict(list)
+    inference_by_client = defaultdict(list)
+    inference_by_engine = defaultdict(list)
     shared: list[Event] = []
     unmatched_raw: list[Event] = []
 
@@ -37,18 +45,12 @@ def correlate_requests(events: list[Event]) -> dict[str, Any]:
         elif event.source == "semantic" and event.request_id:
             semantic[event.request_id].append(event)
         elif event.source == "runtime":
-            # Map by event.request_id, client_request_id, or engine_native_id
-            keys = set()
-            if event.request_id:
-                keys.add(event.request_id)
-            if "client_request_id" in event.attributes:
-                keys.add(event.attributes["client_request_id"])
-            if "engine_native_id" in event.attributes:
-                keys.add(event.attributes["engine_native_id"])
-
-            if keys:
-                for k in keys:
-                    inference[k].append(event)
+            cid = event.attributes.get("client_request_id") or event.request_id
+            nid = event.attributes.get("engine_native_id")
+            if cid:
+                inference_by_client[cid].append(event)
+            elif nid:
+                inference_by_engine[nid].append(event)
             else:
                 unmatched_raw.append(event)
         else:
@@ -56,16 +58,17 @@ def correlate_requests(events: list[Event]) -> dict[str, Any]:
 
     matched = []
     ambiguous = []
-    all_req_keys = sorted(set(semantic.keys()) | set(inference.keys()))
     seen_runtime_event_ids = set()
     unmatched_semantic = []
 
-    for req_key in all_req_keys:
+    # Correlate primarily by client_request_id
+    all_client_keys = sorted(set(semantic.keys()) | set(inference_by_client.keys()))
+
+    for req_key in all_client_keys:
         ss = semantic.get(req_key, [])
-        ii = [ev for ev in inference.get(req_key, []) if ev.event_id not in seen_runtime_event_ids]
+        ii = [ev for ev in inference_by_client.get(req_key, []) if ev.event_id not in seen_runtime_event_ids]
 
         if not ss:
-            # Runtime response without semantic request
             continue
 
         distinct_steps = {(s.run_id, s.step_id) for s in ss}
@@ -92,9 +95,10 @@ def correlate_requests(events: list[Event]) -> dict[str, Any]:
 
     # Gather remaining runtime events that were never matched
     unmatched_runtime = [
-        ev for ev_list in inference.values() for ev in ev_list if ev.event_id not in seen_runtime_event_ids
+        ev for ev_list in list(inference_by_client.values()) + list(inference_by_engine.values())
+        for ev in ev_list if ev.event_id not in seen_runtime_event_ids
     ]
-    # Deduplicate unmatched lists by event_id
+
     dedup_unmatched: dict[str, Event] = {}
     for ev in unmatched_raw + unmatched_semantic + unmatched_runtime:
         dedup_unmatched[ev.event_id] = ev
@@ -104,60 +108,75 @@ def correlate_requests(events: list[Event]) -> dict[str, Any]:
         "ambiguous": ambiguous,
         "shared_device": shared,
         "unmatched": list(dedup_unmatched.values()),
+        "unmatched_requests": [e for e in unmatched_semantic if e.source == "semantic"],
+        "unmatched_responses": [e for e in unmatched_runtime if e.event_type == "model.response"],
     }
 
 
 class EventIngestionStore:
-    """Telemetry store featuring idempotent ingestion, conflict rejection, and durable JSONL persistence."""
+    """Telemetry store featuring thread-safe idempotent ingestion, conflict rejection, and durable JSONL persistence."""
 
     def __init__(self, storage_path: str | Path | None = None) -> None:
         self.storage_path = Path(storage_path) if storage_path else None
         self._events: dict[str, Event] = {}  # keyed by event_id
+        self._lock = threading.Lock()
+        self.corrupted_records_count = 0
         if self.storage_path and self.storage_path.exists():
             self._load_from_disk()
 
     def _load_from_disk(self) -> None:
         assert self.storage_path is not None
         with open(self.storage_path, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if line:
-                    event = Event.from_json(line)
+            for line_no, line in enumerate(f, start=1):
+                raw = line.strip()
+                if not raw:
+                    continue
+                try:
+                    event = Event.from_json(raw)
                     self._events[event.event_id] = event
+                except Exception:
+                    self.corrupted_records_count += 1
 
     def _persist_event(self, event: Event) -> None:
         if self.storage_path:
-            self.storage_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(self.storage_path, "a", encoding="utf-8") as f:
-                f.write(event.to_json() + "\n")
-                f.flush()
-                os.fsync(f.fileno())
+            try:
+                self.storage_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(self.storage_path, "a", encoding="utf-8") as f:
+                    f.write(event.to_json() + "\n")
+                    f.flush()
+                    os.fsync(f.fileno())
+            except OSError as ex:
+                raise PersistenceError(f"Failed to persist event {event.event_id} to {self.storage_path}: {ex}") from ex
 
     def ingest(self, event: Event) -> bool:
-        """Idempotently ingest an event.
+        """Idempotently ingest an event with thread-safety and fail-closed persistence.
         
-        - If new: persists to JSONL (if configured), stores in memory, returns True.
+        - If new: persists to JSONL first. Only commits to memory if persistence succeeds.
         - If duplicate with IDENTICAL payload: returns False (safe idempotent no-op).
         - If duplicate with CONFLICTING payload: raises ConflictingEventError.
+        - If persistence fails: raises PersistenceError without modifying in-memory index.
         """
-        if event.event_id in self._events:
-            existing = self._events[event.event_id]
-            if existing.to_json() == event.to_json():
-                return False  # Idempotent match
-            raise ConflictingEventError(
-                f"Conflicting payload for existing event_id '{event.event_id}'"
-            )
+        with self._lock:
+            if event.event_id in self._events:
+                existing = self._events[event.event_id]
+                if existing.to_json() == event.to_json():
+                    return False  # Idempotent match
+                raise ConflictingEventError(
+                    f"Conflicting payload for existing event_id '{event.event_id}'"
+                )
 
-        self._events[event.event_id] = event
-        self._persist_event(event)
-        return True
+            # Persist to disk FIRST before mutating in-memory store
+            self._persist_event(event)
+            self._events[event.event_id] = event
+            return True
 
     def ingest_batch(self, events: list[Event]) -> int:
         """Ingest a list of events idempotently, returning count of newly added events."""
         return sum(1 for e in events if self.ingest(e))
 
     def get_events(self) -> list[Event]:
-        return list(self._events.values())
+        with self._lock:
+            return list(self._events.values())
 
     def correlate(self) -> dict[str, Any]:
         """Correlate all ingested events with conservative join semantics."""
@@ -187,7 +206,6 @@ class EventIngestionStore:
         for e in all_events:
             if e.attribution == "shared_device":
                 if t_start is not None and t_end is not None:
-                    # Include if within observation window
                     if t_start <= e.timestamp_unix_ns <= t_end:
                         filtered_device_samples.append(e)
                 else:
@@ -204,7 +222,7 @@ class EventIngestionStore:
                 "attribution": "direct",
             })
 
-        # Also preserve standalone semantic steps that had no outbound model call
+        # Preserve standalone semantic steps that had no outbound model call
         matched_req_ids = {m["request_id"] for m in result["matched"]}
         for ev in run_direct_events:
             if ev.event_type == "agent.step" and ev.request_id not in matched_req_ids:
@@ -220,10 +238,10 @@ class EventIngestionStore:
         root_run_events = [e for e in run_direct_events if e.event_type == "agent.run"]
         run_event_json = root_run_events[0].to_json() if root_run_events else None
 
-        # Exclude root session initialization event from unmatched request count
+        # Exclude root session initialization and pure local steps (no request_id) from unmatched count
         unmatched_for_run = [
             u for u in result["unmatched"]
-            if u.run_id == run_id and u.event_type != "agent.run"
+            if u.run_id == run_id and u.event_type != "agent.run" and u.request_id is not None
         ]
 
         return {

@@ -99,7 +99,7 @@ class DeviceTelemetryWindow:
     def __init__(
         self,
         gpu_index: int = 0,
-        sample_interval_s: float = 0.05,
+        sample_interval_s: float = 0.1,
         sampler_fn: Callable[[], Event] | None = None,
         event_sink: Callable[[Event], None] | list[Event] | None = None,
     ) -> None:

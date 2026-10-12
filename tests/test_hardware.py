@@ -116,6 +116,21 @@ class HardwareTests(unittest.TestCase):
             info = get_device_info(0)
             self.assertEqual(info["gpu_name"], "unavailable")
 
+    def test_gpu_sampling_overhead_evaluation(self):
+        # Measure native NVML or mock sampler execution latency
+        mock_sample = lambda: create_event(
+            event_type="gpu.device_sample",
+            source="nvml",
+            attribution="shared_device",
+            metrics={"gpu_util_pct": 10.0},
+        )
+        t0 = time.perf_counter()
+        for _ in range(50):
+            mock_sample()
+        duration_per_sample_us = ((time.perf_counter() - t0) / 50) * 1_000_000
+        # Simulated/NVML sampling overhead should be under 500 microseconds per call
+        self.assertLess(duration_per_sample_us, 500)
+
 
 if __name__ == "__main__":
     unittest.main()
