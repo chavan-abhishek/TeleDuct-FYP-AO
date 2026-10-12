@@ -1,6 +1,7 @@
 import time
 import unittest
 from unittest.mock import patch, MagicMock
+from teleduct.contracts import create_event
 from teleduct.hardware.nvidia_smi import (
     parse_row,
     sample_device,
@@ -70,9 +71,20 @@ class HardwareTests(unittest.TestCase):
                 self.assertEqual(ev.attribution, "shared_device")
 
     def test_device_telemetry_window_time_aligned_samples(self):
-        # Simulate active inference lasting ~120ms with 40ms sample interval
+        # Simulate active inference lasting ~100ms with mock/live sampler fallback
+        mock_sample = lambda: create_event(
+            event_type="gpu.device_sample",
+            source="nvidia_smi",
+            attribution="shared_device",
+            metrics={"gpu_util_pct": 20.0, "power_w": 35.0, "vram_used_mib": 1024.0},
+        )
         sink = []
-        with DeviceTelemetryWindow(gpu_index=0, sample_interval_s=0.03, event_sink=sink) as window:
+        with DeviceTelemetryWindow(
+            gpu_index=0,
+            sample_interval_s=0.03,
+            sampler_fn=mock_sample,
+            event_sink=sink,
+        ) as window:
             time.sleep(0.10)
 
         # Must have collected at least 2 time-aligned samples during window
