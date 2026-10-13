@@ -1,0 +1,302 @@
+{
+    "annotations": {
+        "list": []
+    },
+    "editable": true,
+    "fiscalYearStartMonth": 0,
+    "graphTooltip": 1,
+    "id": null,
+    "links": [],
+    "liveNow": true,
+    "panels": [
+        {
+            "datasource": {
+                "type": "postgres",
+                "uid": "postgresql"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "yellow",
+                                "value": 1
+                            },
+                            {
+                                "color": "red",
+                                "value": 3
+                            }
+                        ]
+                    },
+                    "unit": "short"
+                }
+            },
+            "gridPos": {
+                "h": 5,
+                "w": 6,
+                "x": 0,
+                "y": 0
+            },
+            "id": 1,
+            "title": "🚨 Fragile Decisions Detected (Margin < 0.05)",
+            "type": "stat",
+            "targets": [
+                {
+                    "format": "table",
+                    "rawSql": "SELECT count(*) FROM logit_telemetry WHERE fragility_flag = true;",
+                    "refId": "A"
+                }
+            ]
+        },
+        {
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "max": 24,
+                    "min": 0,
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "yellow",
+                                "value": 18
+                            },
+                            {
+                                "color": "red",
+                                "value": 22
+                            }
+                        ]
+                    },
+                    "unit": "decbytes"
+                }
+            },
+            "gridPos": {
+                "h": 5,
+                "w": 6,
+                "x": 6,
+                "y": 0
+            },
+            "id": 2,
+            "title": "GPU VRAM Occupancy (NVML)",
+            "type": "gauge",
+            "targets": [
+                {
+                    "expr": "teleduct_gpu_vram_used_gb_GB * 1073741824",
+                    "refId": "A"
+                }
+            ]
+        },
+        {
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "max": 400,
+                    "min": 0,
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "yellow",
+                                "value": 200
+                            },
+                            {
+                                "color": "red",
+                                "value": 320
+                            }
+                        ]
+                    },
+                    "unit": "watt"
+                }
+            },
+            "gridPos": {
+                "h": 5,
+                "w": 6,
+                "x": 12,
+                "y": 0
+            },
+            "id": 3,
+            "title": "GPU Power Draw (NVML)",
+            "type": "gauge",
+            "targets": [
+                {
+                    "expr": "teleduct_gpu_power_watts",
+                    "refId": "A"
+                }
+            ]
+        },
+        {
+            "datasource": {
+                "type": "postgres",
+                "uid": "postgresql"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "max": 100,
+                    "min": 20,
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "yellow",
+                                "value": 75
+                            },
+                            {
+                                "color": "red",
+                                "value": 85
+                            }
+                        ]
+                    },
+                    "unit": "celsius"
+                }
+            },
+            "gridPos": {
+                "h": 5,
+                "w": 6,
+                "x": 18,
+                "y": 0
+            },
+            "id": 4,
+            "title": "GPU Die Temperature (NVML)",
+            "type": "gauge",
+            "targets": [
+                {
+                    "format": "table",
+                    "rawSql": "SELECT COALESCE(gpu_temperature_c, 0) FROM hardware_telemetry ORDER BY timestamp_ns DESC LIMIT 1;",
+                    "refId": "A"
+                }
+            ]
+        },
+        {
+            "datasource": {
+                "type": "postgres",
+                "uid": "postgresql"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "unit": "percentunit"
+                }
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 0,
+                "y": 5
+            },
+            "id": 5,
+            "title": "Candidate Token Probability Competition (Top-K Distribution)",
+            "type": "barchart",
+            "targets": [
+                {
+                    "format": "table",
+                    "rawSql": "SELECT candidate_token, candidate_prob FROM v_candidate_token_distribution WHERE step_id = (SELECT step_id FROM logit_telemetry ORDER BY timestamp_ns DESC LIMIT 1) ORDER BY candidate_rank ASC LIMIT 8;",
+                    "refId": "A"
+                }
+            ]
+        },
+        {
+            "datasource": {
+                "type": "postgres",
+                "uid": "postgresql"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "unit": "short"
+                }
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 12,
+                "y": 5
+            },
+            "id": 6,
+            "title": "Sampling Margin Distribution by Confidence Tier",
+            "type": "barchart",
+            "targets": [
+                {
+                    "format": "table",
+                    "rawSql": "SELECT CASE WHEN sampling_margin < 0.05 THEN '🚨 Fragile (< 0.05)' WHEN sampling_margin <= 0.30 THEN '🟡 Medium (0.05 - 0.30)' ELSE '🟢 High (> 0.30)' END AS tier, COUNT(*) AS count FROM logit_telemetry WHERE sampling_margin IS NOT NULL GROUP BY 1 ORDER BY 2 DESC;",
+                    "refId": "A"
+                }
+            ]
+        },
+        {
+            "datasource": {
+                "type": "postgres",
+                "uid": "postgresql"
+            },
+            "gridPos": {
+                "h": 10,
+                "w": 24,
+                "x": 0,
+                "y": 13
+            },
+            "id": 7,
+            "title": "📜 Chain of Intent Full Audit Record (EU AI Act Article 12/13 Compliant)",
+            "type": "table",
+            "targets": [
+                {
+                    "format": "table",
+                    "rawSql": "SELECT step_id, node_name, parent_goal, current_objective, selected_action, selection_rationale, guardrail_checks, ROUND(sampling_margin::numeric, 4) AS margin, fragility_flag, gpu_temperature_c AS temp_c, gpu_power_watts AS watts, step_timestamp FROM v_chain_of_intent_audit ORDER BY step_timestamp DESC LIMIT 25;",
+                    "refId": "A"
+                }
+            ]
+        }
+    ],
+    "refresh": "5s",
+    "schemaVersion": 39,
+    "style": "dark",
+    "tags": [
+        "teleduct",
+        "tier1",
+        "audit",
+        "sre"
+    ],
+    "time": {
+        "from": "now-15m",
+        "to": "now"
+    },
+    "title": "TeleDuct Tier 1 — SRE & Chain of Intent Audit Cockpit",
+    "uid": "teleduct-tier1-audit"
+}
